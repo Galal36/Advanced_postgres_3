@@ -1,0 +1,124 @@
+-- Q1
+CREATE FUNCTION multiply(a INT, b INT) RETURNS INT AS $$
+BEGIN
+    RETURN a * b;
+END;
+$$ LANGUAGE plpgsql;
+
+
+--Q2 Create a hello_world with personalized message
+
+CREATE FUNCTION hello_world(name VARCHAR) RETURNS VARCHAR AS $$
+BEGIN
+    RETURN 'Welcome, ' || name || '!';
+END;
+$$ LANGUAGE plpgsql;
+
+--Q3
+CREATE FUNCTION is_odd_or_even(num INT) RETURNS VARCHAR AS $$
+BEGIN
+    IF num % 2 = 0 THEN
+        RETURN 'Even';
+    ELSE
+        RETURN 'Odd';
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+--Q4
+
+CREATE FUNCTION get_student_info(student_id INT) RETURNS TABLE (
+    id INT,
+    e_name VARCHAR,
+    email VARCHAR,
+    address VARCHAR,
+    track_id INT,
+    birth_date DATE,
+    gender VARCHAR
+) AS $$
+BEGIN
+    RETURN QUERY SELECT * FROM student WHERE id = student_id;
+END;
+$$ LANGUAGE plpgsql;
+
+
+--Q5
+CREATE FUNCTION avg_grade_for_subject(subject_name VARCHAR) RETURNS FLOAT AS $$
+BEGIN
+    RETURN (SELECT AVG(g.grade)
+            FROM grades g
+            JOIN subject s ON g.sub_id = s.id
+            WHERE s.sub_name = subject_name);
+END;
+$$ LANGUAGE plpgsql;
+
+--Q7
+CREATE TABLE Student_Changes (
+    id SERIAL PRIMARY KEY,
+    student_id INT,
+    action VARCHAR,
+    action_time TIMESTAMP,
+    description TEXT
+);
+
+
+--then create the trigger function:
+
+
+CREATE FUNCTION monitor_student_changes() RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        INSERT INTO Student_Changes (student_id, action, action_time, description)
+        VALUES (NEW.id, 'INSERT', NOW(), 'New student added');
+        RETURN NEW;
+    ELSIF TG_OP = 'UPDATE' THEN
+        INSERT INTO Student_Changes (student_id, action, action_time, description)
+        VALUES (NEW.id, 'UPDATE', NOW(), 'Student record updated');
+        RETURN NEW;
+    ELSIF TG_OP = 'DELETE' THEN
+        INSERT INTO Student_Changes (student_id, action, action_time, description)
+        VALUES (OLD.id, 'DELETE', NOW(), 'Student record deleted');
+        RETURN OLD;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+--finally create and execute the trigger
+
+
+CREATE TRIGGER after_student_change
+AFTER INSERT OR UPDATE OR DELETE ON student
+FOR EACH ROW
+EXECUTE FUNCTION monitor_student_changes();
+
+--Bonus calling for function above
+
+-- Testing
+--1-SELECT multiply(2, 3);
+--SELECT multiply(2, 3);
+--3-SELECT is_odd_or_even(4);
+--3-SELECT is_odd_or_even(7);
+--4-SELECT * FROM get_student_info(1);
+--5-SELECT avg_grade_for_subject('Math');
+--6-(Not sure)First, delete a student record: 
+--a.
+--```sql
+--DELETE FROM student WHERE id = 1;
+--```
+--b.
+--Then, check the `Deleted_Students` table:
+
+--```sql
+--SELECT * FROM Deleted_Students WHERE id = 1;
+
+--7-INSERT INTO student (e_name, email, address, track_id, birth_date, gender) VALUES
+('Sara', 'sara@gmail.com', '101 Pine St', 3, '1995-07-22', 'Female');
+--Update an existing student record:
+--UPDATE student SET email = 'sara@iti.com' WHERE e_name = 'Sara';
+--Delete a student record:
+--DELETE FROM student WHERE e_name = 'Sara';
+--Then, check the `Student_Changes` table:--SELECT * FROM Student_Changes WHERE student_id = (SELECT id FROM student WHERE e_name = 'Sara');
+
+--Expected Output**: Records of the insert, update, and delete actions for the student `Sara`.
+
+--These tests should help you verify that each function and trigger is working correctly. Let me know if you need any further assistance!
